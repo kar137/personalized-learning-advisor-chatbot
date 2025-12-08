@@ -1,0 +1,22 @@
+stories:
+  - story: happy path
+    steps:
+      - user: |
+          hello
+        intent: greet
+      - action: utter_greet
+      - user: |
+          I am a Computer Engineering student
+        intent: tell_background
+      - action: profile_form
+      - active_loop: profile_form
+      - active_loop: null
+      - action: utter_submit
+      - user: |
+          suggest a learning path
+        intent: ask_learning_path
+      - action: action_recommend_learning_path
+      - user: |
+          goodbye
+        intent: goodbye
+      - action: utter_goodbye
