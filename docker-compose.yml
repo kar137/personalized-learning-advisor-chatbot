@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  rasa:
+    image: rasa/rasa:3.5.0-full
+    volumes:
+      - ./:/app
+    command: >
+      run --enable-api --cors "*" --port 5005
+    working_dir: /app
+    ports:
+      - "5005:5005"
+
+  actions:
+    build:
+      context: ./actions
+      dockerfile: Dockerfile
+    ports:
+      - "5055:5055"
+    depends_on:
+      - rasa
+
+  streamlit:
+    build:
+      context: ./streamlit_app
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - RASA_API_URL=http://rasa:5005/webhooks/rest/webhook
+    depends_on:
+      - rasa
