@@ -1,0 +1,163 @@
+version: "3.1"
+
+intents:
+  - greet
+  - goodbye
+  - affirm
+  - deny
+  - tell_background
+  - ask_learning_path
+  - ask_course_recommendation
+  - ask_project_idea
+  - ask_career_guidance
+  - update_profile
+  - bot_challenge
+  - inform
+
+entities:
+  - degree
+  - semester
+  - gpa
+  - interest
+  - skill_level
+  - domain
+  - timeframe
+  - name
+  - skills
+
+slots:
+  name:
+    type: text
+    mappings:
+      - type: from_entity
+        entity: name
+
+  degree:
+    type: text
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: profile_form
+            requested_slot: degree
+
+  semester:
+    type: text
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: profile_form
+            requested_slot: semester
+
+  gpa:
+    type: float
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: profile_form
+            requested_slot: gpa
+
+  interests:
+    type: list
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: profile_form
+            requested_slot: interests
+
+  skills:
+    type: list
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: profile_form
+            requested_slot: skills
+
+  learning_goal:
+    type: text
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: profile_form
+            requested_slot: learning_goal
+
+  target_domain:
+    type: text
+    mappings:
+      - type: from_entity
+        entity: domain
+
+  time_commitment:
+    type: text
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: profile_form
+            requested_slot: time_commitment
+
+forms:
+  profile_form:
+    required_slots:
+      - degree
+      - semester
+      - gpa
+      - skills
+      - time_commitment
+      - interests
+      - learning_goal
+
+responses:
+  utter_greet:
+    - text: "Hello! I am your Personalized Learning Advisor. I can help you with learning paths, course recommendations, and career guidance. How can I help you today?"
+
+  utter_goodbye:
+    - text: "Goodbye! Happy learning!"
+
+  utter_iamabot:
+    - text: "I am a bot, powered by Rasa."
+
+  utter_ask_degree:
+    - text: "What degree are you currently pursuing?"
+
+  utter_ask_semester:
+    - text: "Which semester are you in?"
+
+  utter_ask_gpa:
+    - text: "What is your current GPA?"
+
+  utter_ask_skills:
+    - text: "What are your current technical skills? (e.g., Python, Java, Basic ML)"
+
+  utter_ask_time_commitment:
+    - text: "How much time can you commit to learning daily?"
+
+  utter_ask_interests:
+    - text: "What are your areas of interest? (e.g., AI, Web Development, Cybersecurity)"
+
+  utter_ask_learning_goal:
+    - text: "What is your primary learning goal?"
+
+  utter_profile_updated:
+    - text: "I have updated your profile with the new details."
+
+  utter_default:
+    - text: "I'm sorry, I didn't quite catch that. Could you rephrase?"
+
+  utter_submit:
+    - text: "Thanks! I have all the details I need to help you."
+
+  utter_profile_ready:
+    - text: "Perfect! Your personalized learning path is ready. Just ask me 'What should I learn next?' or 'Tell me the learning path' and I'll share it with you!"
+
+actions:
+  - action_recommend_learning_path
+  - action_recommend_courses
+  - action_recommend_projects
+  - action_recommend_career
+  - validate_profile_form
+  - action_show_profile
+  - action_reset_all_slots
+  - action_greet
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true
