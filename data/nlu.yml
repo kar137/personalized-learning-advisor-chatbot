@@ -1,0 +1,135 @@
+version: "3.1"
+
+nlu:
+  - intent: greet
+    examples: |
+      - hey
+      - hello
+      - hi
+      - good morning
+      - good evening
+      - hey there
+
+  - intent: goodbye
+    examples: |
+      - bye
+      - goodbye
+      - see you later
+      - have a nice day
+      - bye bye
+
+  - intent: affirm
+    examples: |
+      - yes
+      - indeed
+      - of course
+      - that sounds good
+      - correct
+
+  - intent: deny
+    examples: |
+      - no
+      - never
+      - I don't think so
+      - don't like that
+      - no way
+      - not really
+
+  - intent: bot_challenge
+    examples: |
+      - are you a bot?
+      - are you a human?
+      - am I talking to a bot?
+      - am I talking to a human?
+
+  - intent: tell_background
+    examples: |
+      - I am a [Computer Engineering](degree) student in my [5th](semester) semester
+      - I'm a [Computer Science](degree) student, currently in semester [5](semester)
+      - I study [Information Technology](degree) in semester [3](semester)
+      - My GPA is [3.5](gpa)
+      - I have a [2.7](gpa) GPA right now
+      - I currently hold a [3.8](gpa) GPA
+      - I know [Python](skills) and [Java](skills)
+      - I am familiar with [Python](skills), [Pandas](skills) and [basic ML](skills)
+      - I have experience in [C++](skills) and [Data Structures](skills)
+      - I'm interested in [AI](interest) and [Machine Learning](interest)
+      - I like [Web Development](interest) and [Frontend](interest)
+      - My interests are [Cybersecurity](interest) and [Networks](interest)
+      - I can spend [1 hour](timeframe) per day studying
+      - I can dedicate [2 hours](timeframe) daily for learning
+      - Usually I can commit [5 hours](timeframe) a week
+      - I'm a [Bachelor of Technology](degree) student in Computer Science
+      - I study [Computer Engineering](degree) and have taken basics of ML
+      - Semester [7](semester) student with hands-on Python skills
+      - I have a GPA of [3.2](gpa) and know [JavaScript](skills)
+      - I'm in semester [4](semester) and interested in [AI](interest)
+      - I have learned [Python](skills) and completed an intro ML course
+      - I am a [BSc](degree) student focusing on [Data Science](interest)
+      - I can study [30 minutes](timeframe) daily due to college
+      - I know basics of [ML](skills) and [Numpy](skills)
+
+  - intent: ask_learning_path
+    examples: |
+      - What should I learn next?
+      - Give me a roadmap for [AI](domain)
+      - How do I become a [Data Scientist](domain)?
+      - I want to learn [Machine Learning](domain)
+      - Suggest a learning path
+      - I want to learn [Python](domain)
+      - I want to learn [Web Development](domain)
+      - I want to learn [Java](domain)
+      - I want to learn [Data Science](domain)
+      - I want to learn [Cybersecurity](domain)
+      - I want to learn [React](domain)
+      - I want to learn [Node.js](domain)
+
+  - intent: ask_course_recommendation
+    examples: |
+      - Recommend some courses
+      - What are the best courses for [Python](domain)?
+      - Suggest free courses for [React](domain)
+      - I need a course on [Deep Learning](domain)
+
+  - intent: ask_project_idea
+    examples: |
+      - Give me some project ideas
+      - What project should I build?
+      - I need a project for my final year
+      - Suggest a beginner project in [Web Dev](domain)
+
+  - intent: ask_career_guidance
+    examples: |
+      - What jobs can I get?
+      - Career advice for [CS](degree) students
+      - How to get an internship?
+      - What are the career options in [AI](domain)?
+
+  - intent: update_profile
+    examples: |
+      - I want to update my profile
+      - Change my details
+      - Update my skills
+      - I learned a new skill
+
+  - intent: inform
+    examples: |
+      - [Computer Science](degree)
+      - [3rd](semester) semester
+      - [3.8](gpa)
+      - [Python](skills)
+      - [Java](skills)
+      - [Cpp](skills)
+      - [AI](interest)
+      - [Web](interest)
+      - [2 hours](timeframe)
+      - Learn AI
+      - I want to learn Machine Learning
+      - My goal is to become a Data Scientist
+      - Master Python
+      - Get a job in AI
+      - Build a chatbot
+      - Learn Deep Learning
+      - Improve my coding skills
+      - Become an AI Engineer
+      - Learn Data Science

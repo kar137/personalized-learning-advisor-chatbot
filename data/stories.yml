@@ -1,0 +1,31 @@
+version: "3.1"
+
+stories:
+  - story: happy path
+    steps:
+      - intent: greet
+      - action: action_greet
+      - intent: tell_background
+      - action: profile_form
+      - active_loop: profile_form
+      - active_loop: null
+      - action: utter_profile_ready
+
+  - story: interactive learning path
+    steps:
+      - intent: greet
+      - action: action_greet
+      - intent: ask_learning_path
+      - action: action_recommend_learning_path
+      - intent: ask_course_recommendation
+      - action: action_recommend_courses
+      - intent: ask_project_idea
+      - action: action_recommend_projects
+
+  - story: user updates profile
+    steps:
+      - intent: update_profile
+      - action: profile_form
+      - active_loop: profile_form
+      - active_loop: null
+      - action: utter_profile_ready

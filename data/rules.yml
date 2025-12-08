@@ -1,0 +1,53 @@
+version: "3.1"
+
+rules:
+  - rule: Say goodbye anytime the user says goodbye
+    steps:
+      - intent: goodbye
+      - action: utter_goodbye
+
+  - rule: Say 'I am a bot' anytime the user challenges
+    steps:
+      - intent: bot_challenge
+      - action: utter_iamabot
+
+  - rule: Activate profile form
+    steps:
+      - intent: tell_background
+      - action: profile_form
+      - active_loop: profile_form
+
+  # Submit profile form rule removed to avoid conflicts with story-specific post-form actions.
+  # Post-form utterances (e.g. `utter_submit`, `utter_profile_updated`) are handled in stories.
+
+  - rule: Ask for learning path
+    steps:
+      - intent: ask_learning_path
+      - action: action_recommend_learning_path
+
+  - rule: Ask for course recommendation
+    steps:
+      - intent: ask_course_recommendation
+      - action: action_recommend_courses
+
+  - rule: Ask for project ideas
+    steps:
+      - intent: ask_project_idea
+      - action: action_recommend_projects
+
+  - rule: Ask for career guidance
+    steps:
+      - intent: ask_career_guidance
+      - action: action_recommend_career
+
+  - rule: Ask the user to rephrase whenever they send a message with low NLU confidence
+    steps:
+      - intent: nlu_fallback
+      - action: utter_default
+
+  - rule: Submit profile form
+    steps:
+      - action: profile_form
+      - active_loop: profile_form
+      - active_loop: null
+      - action: utter_profile_ready
