@@ -3,6 +3,7 @@ Learning Advisor Chatbot - Streamlit Frontend
 A professional, ChatGPT-style interface for the Rasa chatbot.
 """
 
+import os
 import streamlit as st
 import requests
 import uuid
@@ -12,7 +13,10 @@ import time
 # Configuration
 # ============================================================================
 
-RASA_API_URL = "http://localhost:5005/webhooks/rest/webhook"
+RASA_API_URL = os.getenv(
+    "RASA_API_URL",
+    "http://localhost:5005/webhooks/rest/webhook"
+)
 APP_TITLE = "Learning Advisor"
 APP_ICON = "🎓"
 
