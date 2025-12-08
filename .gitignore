@@ -1,0 +1,17 @@
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+/.vscode/
+.DS_Store
+*.log
+.rasa/
+streamlit_app/.streamlit/.cache
+env/
+pip-wheel-metadata/
+dist/
+build/
+*.egg-info/
