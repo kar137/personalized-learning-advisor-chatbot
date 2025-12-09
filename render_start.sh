@@ -2,14 +2,21 @@
 set -euo pipefail
 
 # render_start.sh
-# If ACTIONS_URL is set, write endpoints.yml pointing action_endpoint to it.
-# Then start Rasa using the PORT provided by Render (environment variable $PORT).
+# 1. Start a lightweight Python HTTP server on $PORT immediately so Render's port scanner succeeds.
+# 2. Launch Rasa on an internal port (RASA_INTERNAL_PORT) in the background.
+# 3. The Python server proxies/forwards requests to Rasa once it's ready.
 
-echo "Preparing endpoints.yml from ACTIONS_URL=${ACTIONS_URL:-<not-set>}"
+echo "=== render_start.sh ==="
 
-# Write endpoints to a temp file (tmp is writable for non-root users in many images)
+# Render-provided port; default to 10000 for local testing
+: ${PORT:=10000}
+RASA_INTERNAL_PORT=5005
+
+echo "PORT=$PORT (Render-facing), RASA_INTERNAL_PORT=$RASA_INTERNAL_PORT"
+
+# --- Write endpoints.yml if ACTIONS_URL is set ---
 ENDPOINTS_TMP="/tmp/endpoints.yml"
-
+ENDPOINTS_ARG=""
 if [ -n "${ACTIONS_URL:-}" ] && [ "${ACTIONS_URL:-}" != "<not-set>" ]; then
   cat > "$ENDPOINTS_TMP" <<EOF
 action_endpoint:
@@ -18,87 +25,136 @@ EOF
   echo "Wrote $ENDPOINTS_TMP with action_endpoint -> ${ACTIONS_URL}"
   ENDPOINTS_ARG="--endpoints $ENDPOINTS_TMP"
 else
-  echo "ACTIONS_URL not set; will not write endpoints file."
-  ENDPOINTS_ARG=""
+  echo "ACTIONS_URL not set; no endpoints file written."
 fi
 
-# Ensure PORT is set by Render; default to 5005 for local fallback
-: ${PORT:=5005}
-
-echo "Starting Rasa on port ${PORT}"
-# MODEL selection logic:
-# - If MODEL_FILE env var is set and exists under /app/models, use it.
-# - Else if MODEL_URL is set, the script will attempt to download it (kept for backward compatibility).
+# --- Model selection ---
 MODEL_ARG=""
 MODELS_DIR="/app/models"
 
 if [ -n "${MODEL_FILE:-}" ]; then
-  # Allow both full paths and filenames
   if [ -f "${MODEL_FILE}" ]; then
     MODEL_PATH="${MODEL_FILE}"
   else
     MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
   fi
   if [ -f "${MODEL_PATH}" ]; then
-    echo "Using explicit MODEL_FILE -> ${MODEL_PATH}"
-    # Quick integrity check: list tar contents and ensure expected resources exist
-    set +e
-    if tar -tzf "${MODEL_PATH}" >/tmp/model_contents.txt 2>/tmp/model_contents.err; then
-      echo "Model archive contents (first 40 lines):"
-      head -n 40 /tmp/model_contents.txt || true
-      if grep -E "train_LexicalSyntacticFeaturizer.*/feature_to_idx_dict.pkl" /tmp/model_contents.txt >/dev/null 2>&1; then
-        echo "Found feature_to_idx_dict.pkl for LexicalSyntacticFeaturizer inside archive."
-      else
-        echo "WARNING: feature_to_idx_dict.pkl not found inside the model archive. This may indicate an incompatible or incomplete model." >&2
-      fi
-    else
-      echo "Failed to list model archive contents. stderr:" >&2
-      sed -n '1,200p' /tmp/model_contents.err || true
-    fi
-    set -euo pipefail
+    echo "Using MODEL_FILE -> ${MODEL_PATH}"
     MODEL_ARG="--model ${MODEL_PATH}"
   else
-    echo "MODEL_FILE was set to '${MODEL_FILE}' but file not found at ${MODEL_PATH}." >&2
+    echo "WARNING: MODEL_FILE set but not found at ${MODEL_PATH}" >&2
   fi
 fi
 
-# Backwards-compatible: support MODEL_URL if MODEL_ARG not already set
+# Fallback: MODEL_URL download
 if [ -z "${MODEL_ARG}" ] && [ -n "${MODEL_URL:-}" ] && [ "${MODEL_URL:-}" != "<not-set>" ]; then
-  echo "MODEL_URL provided; attempting to download model from ${MODEL_URL}"
+  echo "Downloading model from MODEL_URL=${MODEL_URL}"
   MODEL_TMP="/tmp/model.tar.gz"
-  set +e
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "${MODEL_URL}" -o "${MODEL_TMP}" || true
-  fi
-  if [ ! -s "${MODEL_TMP}" ] && command -v wget >/dev/null 2>&1; then
-    wget -qO "${MODEL_TMP}" "${MODEL_URL}" || true
-  fi
-  set -euo pipefail
+  curl -fsSL "${MODEL_URL}" -o "${MODEL_TMP}" || wget -qO "${MODEL_TMP}" "${MODEL_URL}" || true
   if [ -s "${MODEL_TMP}" ]; then
-    echo "Downloaded model to ${MODEL_TMP}"
     MODEL_ARG="--model ${MODEL_TMP}"
   else
-    echo "Failed to download model from MODEL_URL=${MODEL_URL}" >&2
+    echo "WARNING: Failed to download model" >&2
   fi
 fi
 
-echo "Starting rasa with args: --port ${PORT} ${MODEL_ARG} ${ENDPOINTS_ARG}"
-echo "-- Startup diagnostics --"
-echo "Environment summary:"
-env | sed -n '1,200p' || true
+echo "MODEL_ARG=${MODEL_ARG}"
+echo "ENDPOINTS_ARG=${ENDPOINTS_ARG}"
 
-echo "Rasa version:" 
-if command -v rasa >/dev/null 2>&1; then
-  rasa --version || true
-else
-  echo "rasa command not found"
-fi
+# --- Create the Python proxy/health server ---
+cat > /tmp/proxy_server.py << 'PYEOF'
+#!/usr/bin/env python3
+"""
+Lightweight HTTP server that:
+- Binds to PORT immediately so Render's port scanner succeeds.
+- Proxies all requests to Rasa on RASA_INTERNAL_PORT once Rasa is ready.
+- Returns 503 with a friendly message while Rasa is still loading.
+"""
+import http.server
+import urllib.request
+import urllib.error
+import os
+import sys
+import socket
 
-echo "Process list:"
-ps aux || true
+PORT = int(os.environ.get("PORT", 10000))
+RASA_PORT = int(os.environ.get("RASA_INTERNAL_PORT", 5005))
+RASA_BASE = f"http://127.0.0.1:{RASA_PORT}"
 
-echo "Network listeners (ss/netstat):"
-ss -lntp 2>/dev/null || netstat -tuln 2>/dev/null || true
+def rasa_ready():
+    """Check if Rasa is accepting connections."""
+    try:
+        with socket.create_connection(("127.0.0.1", RASA_PORT), timeout=1):
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
 
-echo "-- End diagnostics, starting Rasa now --"
-exec rasa run --enable-api --cors "*" --port ${PORT} ${MODEL_ARG} ${ENDPOINTS_ARG}
+class ProxyHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass  # Quiet logs
+
+    def do_proxy(self):
+        if not rasa_ready():
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status":"loading","message":"Rasa is still loading, please retry in a few seconds."}')
+            return
+
+        url = f"{RASA_BASE}{self.path}"
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length else None
+
+        req = urllib.request.Request(url, data=body, method=self.command)
+        for h, v in self.headers.items():
+            if h.lower() not in ("host", "content-length"):
+                req.add_header(h, v)
+        if body:
+            req.add_header("Content-Length", str(len(body)))
+
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                self.send_response(resp.status)
+                for h, v in resp.getheaders():
+                    if h.lower() not in ("transfer-encoding",):
+                        self.send_header(h, v)
+                self.end_headers()
+                self.wfile.write(resp.read())
+        except urllib.error.HTTPError as e:
+            self.send_response(e.code)
+            for h, v in e.headers.items():
+                if h.lower() not in ("transfer-encoding",):
+                    self.send_header(h, v)
+            self.end_headers()
+            self.wfile.write(e.read())
+        except Exception as e:
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(f'{{"error":"{e}"}}'.encode())
+
+    do_GET = do_proxy
+    do_POST = do_proxy
+    do_PUT = do_proxy
+    do_DELETE = do_proxy
+    do_OPTIONS = do_proxy
+    do_HEAD = do_proxy
+
+if __name__ == "__main__":
+    server = http.server.HTTPServer(("0.0.0.0", PORT), ProxyHandler)
+    print(f"[proxy] Listening on 0.0.0.0:{PORT}, forwarding to Rasa at 127.0.0.1:{RASA_PORT}", flush=True)
+    server.serve_forever()
+PYEOF
+
+echo "Starting proxy server on port ${PORT}..."
+export RASA_INTERNAL_PORT
+python3 /tmp/proxy_server.py &
+PROXY_PID=$!
+echo "Proxy server started (PID $PROXY_PID)"
+
+# Give the proxy a moment to bind
+sleep 1
+
+# --- Start Rasa in foreground (so container stays alive) ---
+echo "Starting Rasa on internal port ${RASA_INTERNAL_PORT}..."
+exec rasa run --enable-api --cors "*" --port ${RASA_INTERNAL_PORT} ${MODEL_ARG} ${ENDPOINTS_ARG}
