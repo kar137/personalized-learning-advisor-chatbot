@@ -1,5 +1,7 @@
 env/
 render-deploy.md
+render_start_simple.sh
+render_start.sh
 PROJECT_EXPLANATION.md
 venv/
 .venv/
