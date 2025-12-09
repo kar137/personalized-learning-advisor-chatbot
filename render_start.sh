@@ -83,4 +83,22 @@ if [ -z "${MODEL_ARG}" ] && [ -n "${MODEL_URL:-}" ] && [ "${MODEL_URL:-}" != "<n
 fi
 
 echo "Starting rasa with args: --port ${PORT} ${MODEL_ARG} ${ENDPOINTS_ARG}"
+echo "-- Startup diagnostics --"
+echo "Environment summary:"
+env | sed -n '1,200p' || true
+
+echo "Rasa version:" 
+if command -v rasa >/dev/null 2>&1; then
+  rasa --version || true
+else
+  echo "rasa command not found"
+fi
+
+echo "Process list:"
+ps aux || true
+
+echo "Network listeners (ss/netstat):"
+ss -lntp 2>/dev/null || netstat -tuln 2>/dev/null || true
+
+echo "-- End diagnostics, starting Rasa now --"
 exec rasa run --enable-api --cors "*" --port ${PORT} ${MODEL_ARG} ${ENDPOINTS_ARG}
