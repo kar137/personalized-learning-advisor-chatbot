@@ -7,18 +7,23 @@ set -euo pipefail
 
 echo "Preparing endpoints.yml from ACTIONS_URL=${ACTIONS_URL:-<not-set>}"
 
+# Write endpoints to a temp file (tmp is writable for non-root users in many images)
+ENDPOINTS_TMP="/tmp/endpoints.yml"
+
 if [ -n "${ACTIONS_URL:-}" ] && [ "${ACTIONS_URL:-}" != "<not-set>" ]; then
-  cat > endpoints.yml <<EOF
+  cat > "$ENDPOINTS_TMP" <<EOF
 action_endpoint:
   url: "${ACTIONS_URL}"
 EOF
-  echo "Wrote endpoints.yml with action_endpoint -> ${ACTIONS_URL}"
+  echo "Wrote $ENDPOINTS_TMP with action_endpoint -> ${ACTIONS_URL}"
+  ENDPOINTS_ARG="--endpoints $ENDPOINTS_TMP"
 else
-  echo "ACTIONS_URL not set; leaving existing endpoints.yml (if any) unchanged."
+  echo "ACTIONS_URL not set; will not write endpoints file."
+  ENDPOINTS_ARG=""
 fi
 
 # Ensure PORT is set by Render; default to 5005 for local fallback
 : ${PORT:=5005}
 
 echo "Starting Rasa on port ${PORT}"
-exec rasa run --enable-api --cors "*" --port ${PORT}
+exec rasa run --enable-api --cors "*" --port ${PORT} $ENDPOINTS_ARG
