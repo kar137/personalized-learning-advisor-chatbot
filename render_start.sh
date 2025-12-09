@@ -199,6 +199,43 @@ echo "Proxy server started (PID $PROXY_PID)"
 # Give the proxy a moment to bind
 sleep 1
 
-# --- Start Rasa in foreground (so container stays alive) ---
+# --- Start Rasa with monitoring ---
 echo "Starting Rasa on internal port ${RASA_INTERNAL_PORT}..."
+echo "Memory info before Rasa start:"
+free -h 2>/dev/null || cat /proc/meminfo 2>/dev/null | head -5 || echo "Cannot get memory info"
+
+# Set environment variables to help with TensorFlow on limited resources
+export TF_CPP_MIN_LOG_LEVEL=2
+export TF_FORCE_GPU_ALLOW_GROWTH=true
+export CUDA_VISIBLE_DEVICES=""
+export TF_NUM_INTEROP_THREADS=1
+export TF_NUM_INTRAOP_THREADS=1
+
+# Force Python to use unbuffered output
+export PYTHONUNBUFFERED=1
+
+# Start a background monitor to check if Rasa process is alive
+(
+  sleep 30
+  while true; do
+    if ! kill -0 $$ 2>/dev/null; then
+      echo "[monitor] Parent process died, exiting monitor"
+      exit 0
+    fi
+    
+    # Check if Rasa is listening on its port
+    if ss -lntp 2>/dev/null | grep -q ":${RASA_INTERNAL_PORT}"; then
+      echo "[monitor] Rasa is listening on port ${RASA_INTERNAL_PORT}"
+    else
+      echo "[monitor] Rasa NOT yet listening on port ${RASA_INTERNAL_PORT}"
+    fi
+    
+    # Print memory usage
+    free -h 2>/dev/null | head -2 || true
+    
+    sleep 60
+  done
+) &
+
+echo "Executing: rasa run --enable-api --cors '*' --port ${RASA_INTERNAL_PORT} ${MODEL_ARG} ${ENDPOINTS_ARG}"
 exec rasa run --enable-api --cors "*" --port ${RASA_INTERNAL_PORT} ${MODEL_ARG} ${ENDPOINTS_ARG}
