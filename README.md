@@ -13,7 +13,7 @@ The Personalized Learning Advisor Chatbot is a Rasa-based assistant that provide
 
 **Requirements**
 
-- **Python**: 3.10+
+- **Python**: 3.10
 - **Rasa**: Tested with `rasa==3.6.21` (runtime image `rasa/rasa:3.6.21-full` recommended)
 - **Optional**: Docker and Docker Compose for containerized deployments
 
