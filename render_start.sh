@@ -30,7 +30,7 @@ fi
 
 # --- Model selection ---
 MODEL_ARG=""
-MODELS_DIR="/app/models"
+MODELS_DIR="/models"
 
 if [ -n "${MODEL_FILE:-}" ]; then
   if [ -f "${MODEL_FILE}" ]; then

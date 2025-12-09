@@ -1,5 +1,6 @@
 env/
 render-deploy.md
+PROJECT_EXPLANATION.md
 venv/
 .venv/
 __pycache__/

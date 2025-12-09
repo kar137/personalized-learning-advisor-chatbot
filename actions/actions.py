@@ -4,9 +4,9 @@ from rasa_sdk.executor import CollectingDispatcher
 from rasa_sdk.events import SlotSet, AllSlotsReset
 from rasa_sdk.forms import FormValidationAction
 from rasa_sdk.types import DomainDict
-from actions.recommendation_engine import RecommendationEngine
-from actions.utils import format_list, format_courses
-from actions.db import Database
+from .recommendation_engine import RecommendationEngine
+from .utils import format_list, format_courses
+from .db import Database
 
 recommendation_engine = RecommendationEngine()
 db = Database()
