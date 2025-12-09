@@ -12,6 +12,5 @@ ENTRYPOINT []
 
 EXPOSE 5005
 
-# Use the helper script to write endpoints.yml from ACTIONS_URL and start Rasa on $PORT
-# Run the script with bash to avoid relying on the executable bit.
-CMD ["bash", "render_start.sh"]
+# Use the simpler startup script
+CMD ["bash", "render_start_simple.sh"]
