@@ -15,7 +15,7 @@ import time
 
 RASA_API_URL = os.getenv(
     "RASA_API_URL",
-    "http://localhost:5005/webhooks/rest/webhook"
+    "https://personalized-learning-advisor-rasa.onrender.com/webhooks/rest/webhook"
 )
 APP_TITLE = "Learning Advisor"
 APP_ICON = "🎓"
@@ -224,7 +224,12 @@ if "session_id" not in st.session_state:
 def check_server_status():
     """Check if Rasa server is online."""
     try:
-        requests.get("http://localhost:5005/", timeout=1)
+        # Ping the Rasa server base URL (not the webhook path) to check availability
+        ping_url = RASA_API_URL
+        # If webhook path present, try root
+        if ping_url.endswith('/webhooks/rest/webhook'):
+            ping_url = ping_url.replace('/webhooks/rest/webhook', '/')
+        requests.get(ping_url, timeout=2)
         return True
     except:
         return False
