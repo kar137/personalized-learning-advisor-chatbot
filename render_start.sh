@@ -7,6 +7,9 @@ set -euo pipefail
 # 3. The Python server proxies/forwards requests to Rasa once it's ready.
 
 echo "=== render_start.sh ==="
+echo "Current working directory: $(pwd)"
+echo "Contents of /app:"
+ls -la /app 2>/dev/null || echo "/app not found"
 
 # Render-provided port; default to 10000 for local testing
 : ${PORT:=10000}
@@ -30,19 +33,54 @@ fi
 
 # --- Model selection ---
 MODEL_ARG=""
-MODELS_DIR="/models"
+MODELS_DIR="/app/models"
 
+echo "Looking for models in ${MODELS_DIR}..."
+if [ -d "${MODELS_DIR}" ]; then
+  echo "Contents of ${MODELS_DIR}:"
+  ls -la "${MODELS_DIR}" 2>/dev/null || echo "Could not list models directory"
+else
+  echo "WARNING: Models directory ${MODELS_DIR} does not exist!"
+fi
+
+# Try to find and use a model
 if [ -n "${MODEL_FILE:-}" ]; then
-  if [ -f "${MODEL_FILE}" ]; then
-    MODEL_PATH="${MODEL_FILE}"
-  else
-    MODEL_PATH="${MODELS_DIR}/${MODEL_FILE}"
-  fi
-  if [ -f "${MODEL_PATH}" ]; then
+  echo "MODEL_FILE env var is set to: ${MODEL_FILE}"
+  
+  # Check various possible paths
+  POSSIBLE_PATHS=(
+    "${MODEL_FILE}"
+    "${MODELS_DIR}/${MODEL_FILE}"
+    "/app/${MODEL_FILE}"
+    "${MODELS_DIR}/$(basename ${MODEL_FILE})"
+  )
+  
+  for CANDIDATE in "${POSSIBLE_PATHS[@]}"; do
+    echo "Checking: ${CANDIDATE}"
+    if [ -f "${CANDIDATE}" ]; then
+      MODEL_PATH="${CANDIDATE}"
+      echo "Found model at: ${MODEL_PATH}"
+      break
+    fi
+  done
+  
+  if [ -n "${MODEL_PATH:-}" ] && [ -f "${MODEL_PATH}" ]; then
     echo "Using MODEL_FILE -> ${MODEL_PATH}"
     MODEL_ARG="--model ${MODEL_PATH}"
   else
-    echo "WARNING: MODEL_FILE set but not found at ${MODEL_PATH}" >&2
+    echo "WARNING: MODEL_FILE='${MODEL_FILE}' not found in any expected location" >&2
+  fi
+fi
+
+# Auto-detect: if no MODEL_ARG yet, find the latest .tar.gz in MODELS_DIR
+if [ -z "${MODEL_ARG}" ] && [ -d "${MODELS_DIR}" ]; then
+  echo "Auto-detecting model in ${MODELS_DIR}..."
+  LATEST_MODEL=$(ls -t "${MODELS_DIR}"/*.tar.gz 2>/dev/null | head -n1 || true)
+  if [ -n "${LATEST_MODEL}" ] && [ -f "${LATEST_MODEL}" ]; then
+    echo "Auto-detected latest model -> ${LATEST_MODEL}"
+    MODEL_ARG="--model ${LATEST_MODEL}"
+  else
+    echo "No .tar.gz models found in ${MODELS_DIR}"
   fi
 fi
 
@@ -53,13 +91,19 @@ if [ -z "${MODEL_ARG}" ] && [ -n "${MODEL_URL:-}" ] && [ "${MODEL_URL:-}" != "<n
   curl -fsSL "${MODEL_URL}" -o "${MODEL_TMP}" || wget -qO "${MODEL_TMP}" "${MODEL_URL}" || true
   if [ -s "${MODEL_TMP}" ]; then
     MODEL_ARG="--model ${MODEL_TMP}"
+    echo "Downloaded model to ${MODEL_TMP}"
   else
     echo "WARNING: Failed to download model" >&2
   fi
 fi
 
-echo "MODEL_ARG=${MODEL_ARG}"
-echo "ENDPOINTS_ARG=${ENDPOINTS_ARG}"
+# Final check
+if [ -z "${MODEL_ARG}" ]; then
+  echo "ERROR: No model found! Rasa will start without a model and won't respond to messages." >&2
+fi
+
+echo "Final MODEL_ARG=${MODEL_ARG}"
+echo "Final ENDPOINTS_ARG=${ENDPOINTS_ARG}"
 
 # --- Create the Python proxy/health server ---
 cat > /tmp/proxy_server.py << 'PYEOF'

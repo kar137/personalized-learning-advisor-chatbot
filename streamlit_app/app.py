@@ -203,6 +203,8 @@ st.markdown("""
     }
     .status-online { background-color: #10b981; box-shadow: 0 0 4px #10b981; }
     .status-offline { background-color: #ef4444; }
+    .status-loading { background-color: #f59e0b; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
 </style>
 """, unsafe_allow_html=True)
@@ -222,14 +224,17 @@ if "session_id" not in st.session_state:
 # ============================================================================
 
 def check_server_status():
-    """Check if Rasa server is online."""
+    """Check if Rasa server is online and ready."""
     try:
         # Ping the Rasa server base URL (not the webhook path) to check availability
         ping_url = RASA_API_URL
         # If webhook path present, try root
         if ping_url.endswith('/webhooks/rest/webhook'):
             ping_url = ping_url.replace('/webhooks/rest/webhook', '/')
-        requests.get(ping_url, timeout=2)
+        response = requests.get(ping_url, timeout=5)
+        # Check if server is still loading (503 from our proxy)
+        if response.status_code == 503:
+            return "loading"
         return True
     except:
         return False
@@ -241,11 +246,32 @@ def send_message_to_rasa(message: str) -> list:
             "sender": st.session_state.session_id,
             "message": message
         }
-        response = requests.post(RASA_API_URL, json=payload, timeout=10)
+        response = requests.post(RASA_API_URL, json=payload, timeout=30)
+        
+        # Handle 503 (Rasa still loading)
+        if response.status_code == 503:
+            try:
+                data = response.json()
+                if data.get("status") == "loading":
+                    return [{"text": "⏳ The Learning Advisor is still starting up. Please wait a moment and try again."}]
+            except:
+                pass
+            return [{"text": "⏳ Server is loading, please try again in a few seconds."}]
+        
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+        
+        # If empty response, Rasa might not have a model loaded
+        if not result:
+            return [{"text": "🤔 I received your message but couldn't generate a response. The server might still be initializing."}]
+        
+        return result
+    except requests.exceptions.Timeout:
+        return [{"text": "⏱️ Request timed out. The server might be busy loading. Please try again."}]
+    except requests.exceptions.ConnectionError:
+        return [{"text": "⚠️ Unable to connect to the Learning Advisor server. Please check if the server is running."}]
     except Exception as e:
-        return [{"text": "⚠️ Error: Unable to connect to the Learning Advisor server."}]
+        return [{"text": f"⚠️ Error: Unable to connect to the Learning Advisor server."}]
 
 def is_closing_message(text: str) -> bool:
     """Detect common 'thank you' / closing phrases so we can handle them locally.
@@ -309,11 +335,21 @@ with st.sidebar:
     st.title(f"{APP_ICON} {APP_TITLE}")
     
     # Server Status
-    is_online = check_server_status()
+    server_status = check_server_status()
+    if server_status == "loading":
+        status_class = "status-loading"
+        status_text = "System Loading..."
+    elif server_status:
+        status_class = "status-online"
+        status_text = "System Online"
+    else:
+        status_class = "status-offline"
+        status_text = "System Offline"
+    
     status_html = f"""
     <div style="padding: 10px 0; font-size: 0.9rem; color: #4b5563;">
-        <span class="status-indicator {'status-online' if is_online else 'status-offline'}"></span>
-        {'System Online' if is_online else 'System Offline'}
+        <span class="status-indicator {status_class}"></span>
+        {status_text}
     </div>
     """
     st.markdown(status_html, unsafe_allow_html=True)
