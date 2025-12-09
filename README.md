@@ -62,38 +62,6 @@ cd streamlit_app
 streamlit run app.py
 ```
 
-**Deployment (Render)**
-
-- The project includes a Dockerfile and startup scripts (`render_start.sh`, `render_start_simple.sh`). On Render, the service expects the `PORT` environment variable provided by the platform.
-- Required environment variables on Render:
-  - `ACTIONS_URL`: URL of the actions service (e.g. `https://<your-actions>.onrender.com/webhook`)
-  - `MODEL_FILE` (optional): filename of the model archive inside `models/`. If omitted the startup script will use the newest `*.tar.gz` in `models/`.
-- Recommended runtime image: `rasa/rasa:3.6.21-full` to match models trained with Rasa 3.6.x.
-
-Notes about Render-specific startup:
-
-- Render performs a port-scan to detect healthy services. Rasa must bind the public `PORT` for Render to mark the service as live. The repository contains `render_start_simple.sh` which starts Rasa directly on the Render `PORT`.
-- TensorFlow-based models can have slow startup on low-CPU instances. If you see long load times consider training a lightweight model (`config_lightweight.yml` included) or using a higher-resource plan.
-
-**Troubleshooting**
-
-- **No valid model found**: Ensure your model archive exists in `models/` and that `MODEL_FILE` (if set) points to the correct filename. You can list models with:
-
-```bash
-ls -la models/
-```
-
-- **Model version mismatch**: The model must be compatible with the Rasa runtime. Check the Rasa version used to train the model (`rasa --version`) and ensure the Docker base image matches (e.g. `rasa/rasa:3.6.21-full`).
-
-- **Render port not detected**: Confirm Rasa binds the provided `PORT`. Review Render service logs and ensure startup script uses the `PORT` environment variable. If you previously used an internal proxy, try starting Rasa directly on `PORT`.
-
-- **Slow TensorFlow startup**: On low-CPU instances TensorFlow model loading can take many minutes. Mitigations:
-  - Use the lightweight config `config_lightweight.yml` and retrain (reduces TensorFlow use).
-  - Set TF env vars in the startup script: `TF_CPP_MIN_LOG_LEVEL=2`, `CUDA_VISIBLE_DEVICES=""`, `TF_NUM_INTEROP_THREADS=1`, `TF_NUM_INTRAOP_THREADS=1`.
-  - Use a higher-tier Render instance with more CPU resources.
-
-- **Actions not invoked**: Ensure `endpoints.yml` contains the correct `action_endpoint` URL (the startup script writes `/tmp/endpoints.yml` from the `ACTIONS_URL` env var). Verify your actions server is reachable and healthy.
-
 **Project layout**
 
 - `actions/` — Custom action server code
